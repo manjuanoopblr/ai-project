@@ -1,1 +1,1 @@
-print("My first AI Project in GIT")
+print("Hi")
