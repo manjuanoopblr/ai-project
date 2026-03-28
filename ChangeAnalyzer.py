@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-import json
 
 # ------------------ FUNCTIONS ------------------
 
@@ -23,12 +22,12 @@ def compare_datasets(df_prev, df_curr, primary_key):
     df_prev = df_prev.set_index(primary_key)
     df_curr = df_curr.set_index(primary_key)
 
-    # New & Removed
+    # ------------------ NEW / REMOVED ------------------
     merged = df_prev.merge(df_curr, on=primary_key, how='outer', indicator=True)
     new_records = df_curr[merged['_merge'] == 'right_only']
     removed_records = df_prev[merged['_merge'] == 'left_only']
 
-    # Common
+    # ------------------ COMMON ------------------
     common = df_prev.index.intersection(df_curr.index)
 
     modified_mask = (df_curr.loc[common] != df_prev.loc[common])
@@ -50,7 +49,7 @@ def compare_datasets(df_prev, df_curr, primary_key):
 
     detailed_changes_df = pd.DataFrame(detailed_changes)
 
-    # ------------------ ALL CHANGES (SIDE BY SIDE) ------------------
+    # ------------------ ALL CHANGES ------------------
     all_changes = pd.DataFrame(index=modified_records.index)
 
     for col in df_prev.columns:
@@ -58,6 +57,62 @@ def compare_datasets(df_prev, df_curr, primary_key):
         all_changes[f"Curr_{col}"] = df_curr.loc[modified_records.index, col].where(modified_mask[col])
 
     all_changes.reset_index(inplace=True)
+
+    # ------------------ FULL SUMMARY ------------------
+    full_summary = []
+    all_keys = df_prev.index.union(df_curr.index)
+
+    for key in all_keys:
+
+        if key in df_prev.index and key in df_curr.index:
+            changes_from = []
+            changes_to = []
+
+            for col in df_prev.columns:
+                prev_val = df_prev.loc[key, col]
+                curr_val = df_curr.loc[key, col]
+
+                if pd.isna(prev_val) and pd.isna(curr_val):
+                    continue
+
+                if prev_val != curr_val:
+                    changes_from.append(str(prev_val))
+                    changes_to.append(str(curr_val))
+
+            if changes_from:
+                change_flag = "Yes"
+                from_text = " | ".join(changes_from)
+                to_text = " | ".join(changes_to)
+            else:
+                change_flag = "No"
+                from_text = "-"
+                to_text = "-"
+
+            row_data = df_curr.loc[key].to_dict()
+            row_data[primary_key] = key
+            row_data["Change"] = change_flag
+            row_data["From"] = from_text
+            row_data["To"] = to_text
+
+            full_summary.append(row_data)
+
+        elif key in df_curr.index:
+            row_data = df_curr.loc[key].to_dict()
+            row_data[primary_key] = key
+            row_data["Change"] = "Yes"
+            row_data["From"] = "-"
+            row_data["To"] = "New Record"
+            full_summary.append(row_data)
+
+        elif key in df_prev.index:
+            row_data = df_prev.loc[key].to_dict()
+            row_data[primary_key] = key
+            row_data["Change"] = "Yes"
+            row_data["From"] = "Removed Record"
+            row_data["To"] = "-"
+            full_summary.append(row_data)
+
+    full_summary_df = pd.DataFrame(full_summary)
 
     # ------------------ SUMMARY ------------------
     summary = {
@@ -76,7 +131,8 @@ def compare_datasets(df_prev, df_curr, primary_key):
         "modified_records": modified_records.reset_index(),
         "unchanged_records": unchanged_records.reset_index(),
         "detailed_changes": detailed_changes_df,
-        "all_changes": all_changes
+        "all_changes": all_changes,
+        "full_summary": full_summary_df
     }
 
 # ------------------ STREAMLIT UI ------------------
@@ -94,8 +150,6 @@ with col2:
     file_curr = st.file_uploader("Upload Current Dataset", type=["xlsx"])
 
 primary_key = st.text_input("Enter Primary Key Column")
-
-# ------------------ PROCESS ------------------
 
 if st.button("🚀 Generate Analysis"):
 
@@ -117,18 +171,19 @@ if st.button("🚀 Generate Analysis"):
 
                     st.success("✅ Analysis Completed")
 
-                    # ------------------ SUMMARY ------------------
+                    # Summary
                     st.subheader("📌 Summary")
                     st.json(results["summary"])
 
-                    # ------------------ TABS ------------------
-                    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+                    # Tabs
+                    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
                         "New Records",
                         "Removed Records",
                         "Modified Records",
                         "Unchanged Records",
                         "Detailed Changes",
-                        "All Changes"
+                        "All Changes",
+                        "📋 Full Summary"
                     ])
 
                     with tab1:
@@ -146,17 +201,8 @@ if st.button("🚀 Generate Analysis"):
                     with tab5:
                         st.dataframe(results["detailed_changes"], use_container_width=True)
 
-                        # Filter option
-                        if not results["detailed_changes"].empty:
-                            st.markdown("### 🔍 Filter by Primary Key")
-                            selected_id = st.selectbox(
-                                "Select Record",
-                                results["detailed_changes"]["Primary Key"].unique()
-                            )
-                            filtered = results["detailed_changes"][
-                                results["detailed_changes"]["Primary Key"] == selected_id
-                            ]
-                            st.dataframe(filtered, use_container_width=True)
-
                     with tab6:
                         st.dataframe(results["all_changes"], use_container_width=True)
+
+                    with tab7:
+                        st.dataframe(results["full_summary"], use_container_width=True)
