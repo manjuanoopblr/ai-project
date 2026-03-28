@@ -67,6 +67,7 @@ def compare_datasets(df_prev, df_curr, primary_key):
         if key in df_prev.index and key in df_curr.index:
             changes_from = []
             changes_to = []
+            changed_cols = []
 
             for col in df_prev.columns:
                 prev_val = df_prev.loc[key, col]
@@ -78,19 +79,23 @@ def compare_datasets(df_prev, df_curr, primary_key):
                 if prev_val != curr_val:
                     changes_from.append(str(prev_val))
                     changes_to.append(str(curr_val))
+                    changed_cols.append(col)
 
             if changes_from:
                 change_flag = "Yes"
                 from_text = " | ".join(changes_from)
                 to_text = " | ".join(changes_to)
+                cols_text = " | ".join(changed_cols)
             else:
                 change_flag = "No"
                 from_text = "-"
                 to_text = "-"
+                cols_text = "-"
 
             row_data = df_curr.loc[key].to_dict()
             row_data[primary_key] = key
             row_data["Change"] = change_flag
+            row_data["Changed Columns"] = cols_text
             row_data["From"] = from_text
             row_data["To"] = to_text
 
@@ -100,6 +105,7 @@ def compare_datasets(df_prev, df_curr, primary_key):
             row_data = df_curr.loc[key].to_dict()
             row_data[primary_key] = key
             row_data["Change"] = "Yes"
+            row_data["Changed Columns"] = "-"
             row_data["From"] = "-"
             row_data["To"] = "New Record"
             full_summary.append(row_data)
@@ -108,6 +114,7 @@ def compare_datasets(df_prev, df_curr, primary_key):
             row_data = df_prev.loc[key].to_dict()
             row_data[primary_key] = key
             row_data["Change"] = "Yes"
+            row_data["Changed Columns"] = "-"
             row_data["From"] = "Removed Record"
             row_data["To"] = "-"
             full_summary.append(row_data)
