@@ -371,7 +371,7 @@ if st.button("🚀 Generate Analysis"):
 
                         st.info("This file contains all comparison results across multiple sheets.")
 
-                        with tab10:
+                    with tab10:
                             st.subheader("🤖 AI-Powered Insights")
 
                             st.info("This section uses AI to analyze dataset changes and generate smart insights.")
