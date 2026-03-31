@@ -381,6 +381,6 @@ if st.button("🚀 Generate Analysis"):
 
                             with st.spinner("Generating AI insights... 🤖"):
                                 ai_text = generate_ai_insights(results, insights, col_changes)
-
+ 
                             st.markdown("### 📊 AI Analysis Output")
                             st.write(ai_text)
