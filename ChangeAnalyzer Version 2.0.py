@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+from io import BytesIO
 
 # ------------------ FUNCTIONS ------------------
 
@@ -142,7 +143,7 @@ def compare_datasets(df_prev, df_curr, primary_key):
         "full_summary": full_summary_df
     }
 
-# ------------------ INSIGHTS FUNCTION ------------------
+# ------------------ INSIGHTS ------------------
 
 def generate_insights(results):
 
@@ -150,23 +151,19 @@ def generate_insights(results):
     detailed = results["detailed_changes"]
 
     insights = {}
-
     total_curr = summary["Total Current Records"]
 
-    # Percentages
     insights["% New Records"] = round((summary["New Records"] / total_curr) * 100, 2) if total_curr else 0
     insights["% Removed Records"] = round((summary["Removed Records"] / total_curr) * 100, 2) if total_curr else 0
     insights["% Modified Records"] = round((summary["Modified Records"] / total_curr) * 100, 2) if total_curr else 0
     insights["% Unchanged Records"] = round((summary["Unchanged Records"] / total_curr) * 100, 2) if total_curr else 0
 
-    # Column frequency
     if not detailed.empty:
         col_changes = detailed["Column"].value_counts().reset_index()
         col_changes.columns = ["Column", "Change Count"]
     else:
         col_changes = pd.DataFrame(columns=["Column", "Change Count"])
 
-    # Observations
     observations = []
 
     if insights["% Modified Records"] > 50:
@@ -189,6 +186,30 @@ def generate_insights(results):
     insights_text = "\n".join(observations) if observations else "No major anomalies detected."
 
     return insights, col_changes, insights_text
+
+# ------------------ EXCEL DOWNLOAD ------------------
+
+def create_excel_download(results, insights, col_changes):
+
+    output = BytesIO()
+
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+
+        pd.DataFrame([results["summary"]]).to_excel(writer, sheet_name="Summary", index=False)
+
+        results["new_records"].to_excel(writer, sheet_name="New Records", index=False)
+        results["removed_records"].to_excel(writer, sheet_name="Removed Records", index=False)
+        results["modified_records"].to_excel(writer, sheet_name="Modified Records", index=False)
+        results["unchanged_records"].to_excel(writer, sheet_name="Unchanged Records", index=False)
+        results["detailed_changes"].to_excel(writer, sheet_name="Detailed Changes", index=False)
+        results["all_changes"].to_excel(writer, sheet_name="All Changes", index=False)
+        results["full_summary"].to_excel(writer, sheet_name="Full Summary", index=False)
+
+        pd.DataFrame([insights]).to_excel(writer, sheet_name="Insights", index=False)
+        col_changes.to_excel(writer, sheet_name="Column Changes", index=False)
+
+    output.seek(0)
+    return output
 
 # ------------------ STREAMLIT UI ------------------
 
@@ -229,7 +250,7 @@ if st.button("🚀 Generate Analysis"):
                     st.subheader("📌 Summary")
                     st.json(results["summary"])
 
-                    tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
+                    tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9 = st.tabs([
                         "New Records",
                         "Removed Records",
                         "Modified Records",
@@ -237,7 +258,8 @@ if st.button("🚀 Generate Analysis"):
                         "Detailed Changes",
                         "All Changes",
                         "📋 Full Summary",
-                        "🧠 Insights"
+                        "🧠 Insights",
+                        "📥 Downloads"
                     ])
 
                     with tab1:
@@ -274,3 +296,19 @@ if st.button("🚀 Generate Analysis"):
 
                         st.markdown("### 📈 Most Changed Columns")
                         st.dataframe(col_changes, use_container_width=True)
+
+                    with tab9:
+                        st.subheader("📥 Download Results")
+
+                        insights, col_changes, _ = generate_insights(results)
+
+                        excel_file = create_excel_download(results, insights, col_changes)
+
+                        st.download_button(
+                            label="⬇️ Download Full Analysis (Excel)",
+                            data=excel_file,
+                            file_name=f"comparison_{pd.Timestamp.now().strftime('%Y%m%d_%H%M')}.xlsx",
+                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                        )
+
+                        st.info("This file contains all comparison results across multiple sheets.")
