@@ -316,7 +316,7 @@ if st.button("🚀 Generate Analysis"):
                         "All Changes",
                         "📋 Full Summary",
                         "🧠 Insights",
-                        "📥 Downloads"
+                        "📥 Downloads",
                         "🤖 AI Insights"
                     ])
 
